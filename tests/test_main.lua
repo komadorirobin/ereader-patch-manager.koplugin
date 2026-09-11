@@ -3,6 +3,7 @@ package.path = "./?.lua;" .. package.path
 local scheduled
 local registered
 local settings = {}
+local wrapped = 0
 
 local WidgetContainer = {}
 function WidgetContainer:extend(definition)
@@ -20,7 +21,14 @@ package.loaded["ui/network/manager"] = {
     isConnected = function() return false end,
 }
 package.loaded["ui/widget/notification"] = { new = function(_, value) return value end }
-package.loaded["ui/trapper"] = { dismissableRunInSubprocess = function() return false end }
+package.loaded["ui/trapper"] = {
+    dismissableRunInSubprocess = function() return false end,
+    isWrapped = function() return false end,
+    wrap = function(_, callback)
+        wrapped = wrapped + 1
+        return callback()
+    end,
+}
 package.loaded["ui/uimanager"] = {
     scheduleIn = function(_, _, callback) scheduled = callback end,
     show = function() end,
@@ -60,5 +68,11 @@ instance:addToMainMenu(menu)
 assert(type(menu.ereader_patch_manager) == "table")
 assert(type(menu.ereader_patch_manager.sub_item_table_func) == "function")
 assert(#menu.ereader_patch_manager.sub_item_table_func() >= 5)
+
+instance:_startSync(true)
+assert(wrapped == 1, "synchronization should run inside Trapper")
+assert(instance._sync_running == true, "sync should remain active until its completion callback")
+scheduled()
+assert(instance._sync_running == false, "cancelled synchronization should release its running state")
 
 print("PASS main menu")

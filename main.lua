@@ -175,14 +175,24 @@ function EreaderPatchManager:_startSync(manual, force_names)
         return { ok = false, error = tostring(result) }
     end
 
-    local trap = manual and _("Synchronizing Ereader patches…") or false
-    local completed, result = Trapper:dismissableRunInSubprocess(worker, trap)
-    if not completed then
-        self._sync_running = false
-        if manual then self:_notify(_("Patch synchronization cancelled.")) end
-        return
+    local function run()
+        local trap = manual and _("Synchronizing Ereader patches…") or false
+        local completed, result = Trapper:dismissableRunInSubprocess(worker, trap)
+        UIManager:scheduleIn(0.1, function()
+            if not completed then
+                self._sync_running = false
+                if manual then self:_notify(_("Patch synchronization cancelled.")) end
+                return
+            end
+            self:_handleSyncResult(result, manual)
+        end)
     end
-    self:_handleSyncResult(result, manual)
+
+    if Trapper:isWrapped() then
+        UIManager:scheduleIn(0.1, function() Trapper:wrap(run) end)
+    else
+        Trapper:wrap(run)
+    end
 end
 
 function EreaderPatchManager:syncNow(force_names)
@@ -304,4 +314,3 @@ Patch changes take effect after KOReader restarts. Files not supplied by the Ere
 end
 
 return EreaderPatchManager
-

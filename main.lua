@@ -51,6 +51,8 @@ local function httpGet(url)
             headers = {
                 ["User-Agent"] = "KOReader-Ereader-Patch-Manager/1.0",
                 ["Accept"] = "application/vnd.github+json",
+                ["Cache-Control"] = "no-cache",
+                ["Pragma"] = "no-cache",
             },
             sink = ltn12.sink.table(chunks),
             redirect = true,
@@ -160,6 +162,7 @@ function EreaderPatchManager:_startSync(manual, force_names)
     end
 
     self._sync_running = true
+    self._sync_serial = (self._sync_serial or 0) + 1
     local options = {
         http_get = httpGet,
         decode = rapidjson.decode,
@@ -168,6 +171,8 @@ function EreaderPatchManager:_startSync(manual, force_names)
         known_shas = self.settings.shas,
         auto_install_new = self.settings.auto_install_new,
         force_names = force_names,
+        verify_existing = manual,
+        cache_buster = string.format("%d-%d", os.time(), self._sync_serial),
     }
     local function worker()
         local ok, result = pcall(Service.sync, options)

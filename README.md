@@ -11,6 +11,8 @@ at [komadorirobin/Ereader](https://github.com/komadorirobin/Ereader).
   connected. It never turns Wi-Fi on by itself.
 - Installs newly published patches by default and updates existing patches when
   their Git blob changes.
+- Bypasses stale GitHub caches, and manual synchronization verifies installed
+  file contents even when the saved repository identity already matches.
 - Preserves enabled/disabled state when updating a patch.
 - Validates file size and Lua syntax before installation.
 - Stores the previous version in

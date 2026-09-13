@@ -11,6 +11,11 @@ local function encodePath(value)
     end)
 end
 
+local function appendQuery(url, key, value)
+    local separator = url:find("?", 1, true) and "&" or "?"
+    return url .. separator .. encodePath(key) .. "=" .. encodePath(value)
+end
+
 local function copyTable(source)
     local result = {}
     for key, value in pairs(source or {}) do result[key] = value end
@@ -28,7 +33,9 @@ function Service.sync(options)
     local patch_dir = assert(options.patch_dir, "patch_dir is required")
     local backup_dir = assert(options.backup_dir, "backup_dir is required")
 
-    local tree_body, tree_err = http_get(Service.TREE_URL)
+    local cache_buster = options.cache_buster or tostring(os.time())
+    local tree_url = appendQuery(Service.TREE_URL, "patchsync", cache_buster)
+    local tree_body, tree_err = http_get(tree_url)
     if not tree_body then
         return { ok = false, error = tree_err or "could not fetch repository" }
     end
@@ -60,11 +67,18 @@ function Service.sync(options)
             if not should_install then
                 result.available = result.available + 1
                 result.states[entry.path] = "available"
-            elseif target and result.shas[entry.path] == entry.sha and not forced then
+            elseif target
+                    and result.shas[entry.path] == entry.sha
+                    and not forced
+                    and not options.verify_existing then
                 result.unchanged = result.unchanged + 1
                 result.states[entry.path] = enabled_or_err and "enabled" or "disabled"
             else
-                local content, download_err = http_get(Service.RAW_BASE .. encodePath(entry.path))
+                local raw_url = Service.RAW_BASE .. encodePath(entry.path)
+                -- Tie the raw request to the blob from the catalogue. This both
+                -- avoids stale branch-name caches and documents what is expected.
+                raw_url = appendQuery(raw_url, "blob", entry.sha)
+                local content, download_err = http_get(raw_url)
                 if not content then
                     addError(result, entry.path, download_err or "download failed")
                 else
@@ -104,4 +118,3 @@ function Service.sync(options)
 end
 
 return Service
-

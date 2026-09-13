@@ -38,8 +38,9 @@ end
 
 local function httpWith(content)
     return function(url)
-        if url == Service.TREE_URL then return "tree" end
-        return content[url:match("/([^/]+)$")]
+        if url:sub(1, #Service.TREE_URL) == Service.TREE_URL then return "tree" end
+        local filename = url:match("/([^/?]+)%?") or url:match("/([^/?]+)$")
+        return content[filename]
     end
 end
 
@@ -52,6 +53,50 @@ test("tree parsing filters non-patches and nested files", function()
     })))
     assert(#parsed.patches == 1)
     assert(parsed.patches[1].path == "2-good.lua")
+end)
+
+test("manual verification repairs a stale file despite a matching saved SHA", function()
+    local root = tempDir("verify")
+    local stale = "return 'stale'\n"
+    local current = "return 'current'\n"
+    write(root .. "/patches/2-example.lua", stale)
+    local result = Service.sync({
+        http_get = httpWith({ ["2-example.lua"] = current }),
+        decode = decoderWith({
+            { type = "blob", path = "2-example.lua", sha = "beef", size = #current },
+        }),
+        patch_dir = root .. "/patches",
+        backup_dir = root .. "/backups",
+        known_shas = { ["2-example.lua"] = "beef" },
+        auto_install_new = true,
+        verify_existing = true,
+    })
+    assert(result.ok and result.updated == 1)
+    assert(read(root .. "/patches/2-example.lua") == current)
+end)
+
+test("requests include cache identities", function()
+    local root = tempDir("cache")
+    local body = "return true\n"
+    local urls = {}
+    local result = Service.sync({
+        http_get = function(url)
+            urls[#urls + 1] = url
+            if url:sub(1, #Service.TREE_URL) == Service.TREE_URL then return "tree" end
+            return body
+        end,
+        decode = decoderWith({
+            { type = "blob", path = "2-example.lua", sha = "cafe", size = #body },
+        }),
+        patch_dir = root .. "/patches",
+        backup_dir = root .. "/backups",
+        known_shas = {},
+        auto_install_new = true,
+        cache_buster = "test-123",
+    })
+    assert(result.ok and result.installed == 1)
+    assert(urls[1]:find("patchsync=test%-123"))
+    assert(urls[2]:find("blob=cafe"))
 end)
 
 test("existing enabled patch is updated and backed up", function()
@@ -134,4 +179,3 @@ test("invalid Lua never replaces the installed patch", function()
 end)
 
 print(string.format("PASS %d", passed))
-

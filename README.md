@@ -21,6 +21,14 @@ at [komadorirobin/Ereader](https://github.com/komadorirobin/Ereader).
 
 Patch changes are loaded on the next KOReader restart.
 
+## Plugin updates
+
+Use **Tools > Ereader Patch Manager > Check for Patch Manager update** to
+install a newer stable release directly from GitHub. The plugin also checks
+silently at most once per day when KOReader starts or reconnects, and only
+notifies when an update is available. Plugin updates are verified against the
+release version and take effect after KOReader restarts.
+
 ## Installation
 
 Extract `ereader-patch-manager.koplugin.zip` into KOReader's `plugins`

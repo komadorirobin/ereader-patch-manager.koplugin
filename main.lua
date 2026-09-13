@@ -303,6 +303,10 @@ function EreaderPatchManager:addToMainMenu(menu_items)
                     separator = true,
                 },
                 {
+                    text = _("Check for Patch Manager update"),
+                    callback = function() require("patchmanager_updater").check(self, true) end,
+                },
+                {
                     text = _("About Ereader Patch Manager"),
                     keep_menu_open = true,
                     callback = function()
@@ -316,6 +320,14 @@ Patch changes take effect after KOReader restarts. Files not supplied by the Ere
             }
         end,
     }
+end
+
+function EreaderPatchManager:onStart()
+    require("patchmanager_updater").check(self, false)
+end
+
+function EreaderPatchManager:onNetworkConnected()
+    require("patchmanager_updater").check(self, false)
 end
 
 return EreaderPatchManager

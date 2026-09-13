@@ -2,8 +2,9 @@ local Core = require("patchsync_core")
 
 local Service = {}
 
-Service.TREE_URL = "https://api.github.com/repos/komadorirobin/Ereader/git/trees/main?recursive=1"
-Service.RAW_BASE = "https://raw.githubusercontent.com/komadorirobin/Ereader/main/"
+Service.COMMIT_URL = "https://api.github.com/repos/komadorirobin/Ereader/commits/main"
+Service.TREE_BASE = "https://api.github.com/repos/komadorirobin/Ereader/git/trees/"
+Service.RAW_BASE = "https://raw.githubusercontent.com/komadorirobin/Ereader/"
 
 local function encodePath(value)
     return tostring(value):gsub("[^%w%-._~]", function(char)
@@ -34,7 +35,17 @@ function Service.sync(options)
     local backup_dir = assert(options.backup_dir, "backup_dir is required")
 
     local cache_buster = options.cache_buster or tostring(os.time())
-    local tree_url = appendQuery(Service.TREE_URL, "patchsync", cache_buster)
+    local commit_url = appendQuery(Service.COMMIT_URL, "patchsync", cache_buster)
+    local commit_body, commit_err = http_get(commit_url)
+    if not commit_body then
+        return { ok = false, error = commit_err or "could not fetch repository head" }
+    end
+
+    local commit_sha, commit_parse_err = Core.parseCommit(commit_body, options.decode)
+    if not commit_sha then return { ok = false, error = commit_parse_err } end
+
+    local tree_url = Service.TREE_BASE .. encodePath(commit_sha) .. "?recursive=1"
+    tree_url = appendQuery(tree_url, "patchsync", cache_buster)
     local tree_body, tree_err = http_get(tree_url)
     if not tree_body then
         return { ok = false, error = tree_err or "could not fetch repository" }
@@ -74,9 +85,10 @@ function Service.sync(options)
                 result.unchanged = result.unchanged + 1
                 result.states[entry.path] = enabled_or_err and "enabled" or "disabled"
             else
-                local raw_url = Service.RAW_BASE .. encodePath(entry.path)
-                -- Tie the raw request to the blob from the catalogue. This both
-                -- avoids stale branch-name caches and documents what is expected.
+                -- Use the immutable commit that produced the catalogue. A raw
+                -- main URL can briefly serve the previous file after a push.
+                local raw_url = Service.RAW_BASE .. encodePath(commit_sha)
+                    .. "/" .. encodePath(entry.path)
                 raw_url = appendQuery(raw_url, "blob", entry.sha)
                 local content, download_err = http_get(raw_url)
                 if not content then

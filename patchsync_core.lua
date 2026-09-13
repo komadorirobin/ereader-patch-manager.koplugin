@@ -28,6 +28,25 @@ function Core.fileExists(path)
     return true
 end
 
+function Core.parseCommit(body, decode)
+    if type(body) ~= "string" or body == "" then
+        return nil, "empty repository head response"
+    end
+    if type(decode) ~= "function" then
+        return nil, "JSON decoder unavailable"
+    end
+
+    local ok, data = pcall(decode, body)
+    if not ok or type(data) ~= "table" then
+        return nil, "invalid repository head response"
+    end
+    local sha = data.sha
+    if type(sha) ~= "string" or not sha:match("^[0-9a-fA-F]+$") then
+        return nil, "repository head has no valid commit ID"
+    end
+    return sha:lower()
+end
+
 function Core.parseTree(body, decode)
     if type(body) ~= "string" or body == "" then
         return nil, "empty repository response"

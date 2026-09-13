@@ -3,6 +3,7 @@ package.path = "./?.lua;" .. package.path
 local Core = require("patchsync_core")
 local Service = require("patchsync_service")
 
+local COMMIT_SHA = string.rep("a", 40)
 local passed = 0
 local function test(name, fn)
     local ok, err = pcall(fn)
@@ -31,18 +32,27 @@ local function read(path)
 end
 
 local function decoderWith(entries)
-    return function()
+    return function(body)
+        if body == "commit" then return { sha = COMMIT_SHA } end
         return { sha = "tree123", truncated = false, tree = entries }
     end
 end
 
 local function httpWith(content)
     return function(url)
-        if url:sub(1, #Service.TREE_URL) == Service.TREE_URL then return "tree" end
+        if url:sub(1, #Service.COMMIT_URL) == Service.COMMIT_URL then return "commit" end
+        if url:sub(1, #Service.TREE_BASE) == Service.TREE_BASE then return "tree" end
         local filename = url:match("/([^/?]+)%?") or url:match("/([^/?]+)$")
         return content[filename]
     end
 end
+
+test("commit parsing validates and normalizes the repository head", function()
+    local parsed = assert(Core.parseCommit("commit", decoderWith({})))
+    assert(parsed == COMMIT_SHA)
+    local missing, err = Core.parseCommit("invalid", function() return {} end)
+    assert(missing == nil and err:find("commit ID", 1, true))
+end)
 
 test("tree parsing filters non-patches and nested files", function()
     local parsed = assert(Core.parseTree("tree", decoderWith({
@@ -82,7 +92,8 @@ test("requests include cache identities", function()
     local result = Service.sync({
         http_get = function(url)
             urls[#urls + 1] = url
-            if url:sub(1, #Service.TREE_URL) == Service.TREE_URL then return "tree" end
+            if url:sub(1, #Service.COMMIT_URL) == Service.COMMIT_URL then return "commit" end
+            if url:sub(1, #Service.TREE_BASE) == Service.TREE_BASE then return "tree" end
             return body
         end,
         decode = decoderWith({
@@ -96,7 +107,10 @@ test("requests include cache identities", function()
     })
     assert(result.ok and result.installed == 1)
     assert(urls[1]:find("patchsync=test%-123"))
-    assert(urls[2]:find("blob=cafe"))
+    assert(urls[2]:find(COMMIT_SHA, 1, true))
+    assert(urls[2]:find("recursive=1", 1, true))
+    assert(urls[3]:find("/" .. COMMIT_SHA .. "/2%-example%.lua"))
+    assert(urls[3]:find("blob=cafe"))
 end)
 
 test("existing enabled patch is updated and backed up", function()

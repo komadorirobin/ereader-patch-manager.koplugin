@@ -212,7 +212,7 @@ function EreaderPatchManager:_patchStatus(entry)
 end
 
 function EreaderPatchManager:_togglePatch(entry)
-    local _, target, enabled = self:_patchStatus(entry)
+    local _status, target, enabled = self:_patchStatus(entry)
     if not target then
         self:syncNow({ [entry.path] = true })
         return
@@ -229,12 +229,12 @@ end
 
 function EreaderPatchManager:_catalogMenu()
     local items = {}
-    for _, catalog_entry in ipairs(self.settings.catalog or {}) do
+    for _index, catalog_entry in ipairs(self.settings.catalog or {}) do
         local entry = catalog_entry
         items[#items + 1] = {
             text = entry.path,
             checked_func = function()
-                local _, target, enabled = self:_patchStatus(entry)
+                local _status, target, enabled = self:_patchStatus(entry)
                 return target ~= nil and enabled == true
             end,
             mandatory_func = function()

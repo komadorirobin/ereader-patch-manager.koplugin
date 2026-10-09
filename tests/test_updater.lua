@@ -46,6 +46,7 @@ stub("socketutil", {})
 stub("gettext", function(value) return value end)
 
 local helpers = require("patchmanager_updater")._test
+assert(helpers.isNewer("1.1.2", "1.1.1"), "crash fix should be offered to the previous release")
 assert(helpers.isNewer("1.1.0", "1.0.2"), "minor release should be newer")
 assert(not helpers.isNewer("1.1.0", "1.1.0"), "equal releases must not update")
 assert(not helpers.isNewer("1.0.9", "1.1.0"), "older releases must not update")

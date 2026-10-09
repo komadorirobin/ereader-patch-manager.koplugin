@@ -14,6 +14,8 @@ at [komadorirobin/Ereader](https://github.com/komadorirobin/Ereader).
 - Bypasses stale GitHub caches, and manual synchronization verifies installed
   file contents even when the saved repository identity already matches.
 - Preserves enabled/disabled state when updating a patch.
+- Toggling a patch changes its file state and prompts for a restart; it does not
+  reload or execute the patch immediately. Long-pressing an entry shows its details.
 - Validates file size and Lua syntax before installation.
 - Stores the previous version in
   `settings/ereader-patch-manager/backups/` before replacing a patch.
